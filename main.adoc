@@ -10,24 +10,166 @@ Introduction
 
 Lambda vs. Machine
 ------------------
+[%step]
 - Brief history lesson about Functional Programming
-
-Lambda vs. Machine
-------------------
 - Modern computer is built upon the foundations of the "model of computation" most commonly associated with the Turing Machine
-
-Lambda vs. Machine
-------------------
 - General purpose programming languages are typically described as "Turing complete" <- they can emulate a Turing machine
-
-Lambda vs. Machine
-------------------
 - In the 1930's model of computation Turing published the Turing Machine but *independently* Alonzo Church published the Lambda Calculus
-
-Lambda vs. Machine
-------------------
 - Lambda Calculus is *equivalent* to the Turing Machine
 
 Lambda vs. Machine
 ------------------
 - Lambda Calculus is chosen as the starting point for *functional programming*
+
+Relationship to Currying
+------------------------
+// simplification of the LC
+- Original lambda calculus only uses *one argument functions*
+
+Relationship to Currying
+------------------------
+- Haskell also implements all functions as one argument functions
+
+Relationship to Currying
+------------------------
+- functions in ML languages *auto-curry* functions will wait until they have all their arguments before returning their value
+- Some ML based languages you might have heard of:
+* *Elm*
+* Haskell
+* Ocaml
+* ReasonML
+
+Relationship to Currying
+------------------------
+- Example of auto-curry feature in Haskell:
+
+[source, haskell]
+----
+addXtoY :: Integer -> Integer -> Integer
+addXtoY x y = x + y
+
+addXtoY 1 2
+-- => 3
+(addXtoY 1) 2
+-- => 3
+----
+
+non-ML languages suck
+---------------------
+- Usually have to *manually* differentiate between curried and multi-argument versions of functions in languages that don't auto-curry. This is in part because of the lack of a type-system.
+
+non-ML languages suck
+---------------------
+- The type system allows the compier to know when a function has been supplied all the arguments
+
+JavaScript secretly functional?
+-------------------------------
+// removes a lot of the cruft in currying
+- If you squint all we've swapped is an arrow and brackets for a comma
+
+[source, javascript]
+----
+//uncurried multi-arg form:
+const uncurriedAddXtoY = (x, y) => x + y
+uncurriedAddXtoY(1, 2)
+// => 3
+const curriedAddXtoY = (x) => (y) => x + y
+curriedAddXtoY(1)(2)
+// => 3
+----
+
+
+compare Ruby and Clojure
+------------------------
+Clojure:
+
+[source, clojure]
+----
+(def add-x-to-y
+  (fn [x]
+    (fn [y]
+      (+ x y))))
+((add-x-to-y 1) 2)
+;; => 3
+----
+
+
+Ruby:
+
+[source, ruby]
+----
+add_x_to_y = lambda do |x|
+  lambda do |y|
+    x + y
+  end
+end
+add_x_to_y[1][2]
+# => 3
+
+add_x_to_y_2 = ->(j) { ->(k) { j + k } }
+----
+
+compare Ruby and Clojure
+------------------------
+- function that takes an x and returns function that takes a y ...
+
+image::wtf.jpg[]
+
+some examples where we've used some currying
+--------------------------------------------
+- DRYing function definitions:
+[source, clojure]
+----
+(defn- round-to-dp [dp x]
+  (.setScale (bigdec x) dp BigDecimal/ROUND_HALF_UP))
+
+;; e.g. for percentages and wowscore
+(def round-1dp (partial round-to-dp 1))
+;; e.g for currency
+(def round-2dp (partial round-to-dp 2))
+----
+
+Here the definition of rounding is coupled which means
+if we need to do any number type or input exception
+handling, all the implementations receive that fix.
+
+more curry
+----------
+
+[source, clojure]
+----
+(defn comp ;; this is actually in the standard library
+  "Comp: functional composition - take some functions and return a function
+  expects a value that chains the result of calling the function on the result
+  of the previous result in the list of functions
+
+  ie (h (g (f x))) is the same as (let [hgf (comp h g f)] (hgf x))
+
+  Useful for grouping a sequence of transformations together in the absence of
+  the input itself
+
+  Unfortunately a feature-complete implementation is a bit tricky..."
+  [& fns]
+  (fn [& args]
+    (let [fns (reverse fns)
+          first-fn (first fns)
+          starting-result (apply first-fn args)]
+      (->> fns
+           rest
+           (reduce (fn [result f] (f result))
+                   starting-result)))))
+
+(defn curry [f & args] ;; this is also in the stdlib
+  (fn [& delayed-args]
+    (apply f (concat args delayed-args))))
+
+(def lt (comp neg? compare))
+(def gt (comp pos? compare))
+(def gte (comp not neg? compare))
+(def lte (comp not pos? compare))
+
+(def s<  (curry compare-strings lt))
+(def s<= (curry compare-strings lte))
+(def s>  (curry compare-strings gt))
+(def s>= (curry compare-strings gte))
+----
