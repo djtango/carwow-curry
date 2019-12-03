@@ -10,11 +10,22 @@ Introduction
 
 Lambda vs. Machine
 ------------------
-[%step]
 - Brief history lesson about Functional Programming
+
+Lambda vs. Machine
+------------------
 - Modern computer is built upon the foundations of the "model of computation" most commonly associated with the Turing Machine
+
+Lambda vs. Machine
+------------------
 - General purpose programming languages are typically described as "Turing complete" <- they can emulate a Turing machine
+
+Lambda vs. Machine
+------------------
 - In the 1930's model of computation Turing published the Turing Machine but *independently* Alonzo Church published the Lambda Calculus
+
+Lambda vs. Machine
+------------------
 - Lambda Calculus is *equivalent* to the Turing Machine
 
 Lambda vs. Machine
@@ -117,6 +128,7 @@ image::wtf.jpg[]
 
 some examples where we've used some currying
 --------------------------------------------
+https://gist.github.com/djtango/46206195f0a83f83e46af0c20a25e88e
 - DRYing function definitions:
 [source, clojure]
 ----
@@ -135,7 +147,7 @@ handling, all the implementations receive that fix.
 
 more curry
 ----------
-
+https://gist.github.com/djtango/cc1b944bef88d600be349400555cbad6
 [source, clojure]
 ----
 (defn comp ;; this is actually in the standard library
@@ -172,4 +184,113 @@ more curry
 (def s<= (curry compare-strings lte))
 (def s>  (curry compare-strings gt))
 (def s>= (curry compare-strings gte))
+----
+
+
+db dependency injection
+-----------------------
+https://gist.github.com/djtango/f70f3faa94c9116ab6f472b19853e9fa
+[source, clojure]
+----
+(defn with-db-rollback [fn-expecting-tx]
+  (jdbc/with-db-transaction [tx db/db-uri]
+    (jdbc/db-set-rollback-only! tx)
+    (fn-expecting-tx tx)))
+
+(deftest makes.show
+  (testing "with a valid make"
+    (test-helpers/with-db-rollback
+      (fn [db]
+        (insert-brand db "audi")
+        (insert-model db "audi" "a3" 5)
+        (db/refresh-materialized-views db)
+        (let [response ((sut/app db) (mock/request :get "/legacy/makes/audi"))]
+          (testing "should respond with a status code 200"
+            (is (= 200 (:status response))))
+          (testing "body contains make"
+            (is (= expected-result (->> response
+                                        (json-body))))))))))
+----
+
+API middleware
+--------------
+https://gist.github.com/djtango/ac5020c9dc6c3a637ed5fb28d656d3a6
+
+[source, clojure]
+----
+;; Clojure Ring handlers (like a route controller) are simple functions that take a request object and
+;; return back a hashmap that represents the HTTP response
+(defn status [req]
+  (let [sha (status/fetch-sha)
+        app-name (status/app-name)
+        dyno-id (status/dyno-id)
+        released-at (status/released-at)
+        db-status (status/db-status)
+        queue-status (status/queue-status)
+        status-code (if (= db-status "ok") 200 500)]
+    {:status status-code
+     :body {:db-status db-status
+            :sha sha
+            :app-name app-name
+            :country country
+            :dyno-id dyno-id
+            :queue-status queue-status
+            :released-at released-at}}))
+
+;; Because handlers are just functions, you can do whatever you want with them.
+;; You can simply implement a middleware stack by creating functions that take
+;; a handler and return a handler that wraps the result of calling the input
+;; handler on the incoming request.
+;; This way you can configure orthogonal bits of logic separate from each other
+;; but set them up on all request handlers.
+;; This way your middleware handlers all obey the single responsibility principle
+
+(defn log-requests [next-middleware]
+  (fn [req]
+    (let [{:keys [method route params]} (unpack req)
+          response (next-middleware req)]
+      (log/infof "%s %s %s %s"
+                 (:status response)
+                 (str/upper-case (name method))
+                 route
+                 params)
+      response)))
+----
+
+API middleware
+--------------
+- we use this middleware pattern to configure Bugsnag, Hirefire, server logging and Honeycomb all separately from each other.
+
+API middleware
+--------------
+- this style encourages your request handlers to stay simple and focus on the request behaviour
+
+API middleware
+--------------
+- it makes all your middleware explicit
+
+API middleware
+--------------
+- the evolution of the request and response is pure so easy to test
+
+API middleware
+--------------
+https://gist.github.com/djtango/201a664d36b65d01490933a53676c065
+----
+(defn app [db]
+      ;; inject the DB connection into every handler
+  (-> (bidi.ring/make-handler bidi-routes (comp #(partial % db) key->handler))
+      middleware.bugsnag/notify-errors
+      middleware.hirefire/log-requests
+      middleware.logging/log-requests
+      middleware.honeycomb/wrap-with-event
+      inject-handler-name
+      middleware.errors/normalise-errors
+      ring.middleware.keyword-params/wrap-keyword-params
+      ring.middleware.nested-params/wrap-nested-params
+      ring.middleware.params/wrap-params
+      ring.middleware.json/wrap-json-params
+      ring.middleware.json/wrap-json-response
+      (middleware.cors/wrap-cors #"\Ahttps://[a-z-_]*\.carwow.local\z" (cors-country-origin))
+      (wrap-response-headers "Vary" "Authorization, Accept-Encoding, Origin")))
 ----
