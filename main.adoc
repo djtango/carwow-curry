@@ -1,0 +1,33 @@
+Currying In The Wild
+====================
+// :author: Deon Tan
+
+
+Introduction
+------------
+- 'Currying' <- weird word!
+- Actually named after Haskell Curry (Mathematician known for combinatory logic)
+
+Lambda vs. Machine
+------------------
+- Brief history lesson about Functional Programming
+
+Lambda vs. Machine
+------------------
+- Modern computer is built upon the foundations of the "model of computation" most commonly associated with the Turing Machine
+
+Lambda vs. Machine
+------------------
+- General purpose programming languages are typically described as "Turing complete" <- they can emulate a Turing machine
+
+Lambda vs. Machine
+------------------
+- In the 1930's model of computation Turing published the Turing Machine but *independently* Alonzo Church published the Lambda Calculus
+
+Lambda vs. Machine
+------------------
+- Lambda Calculus is *equivalent* to the Turing Machine
+
+Lambda vs. Machine
+------------------
+- Lambda Calculus is chosen as the starting point for *functional programming*
